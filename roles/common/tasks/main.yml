@@ -1,0 +1,15 @@
+- block:
+  - name: Check directories
+    stat:
+      path: '/IVT-CTKS-101M'
+    register: directory_data
+  - debug: var=directory_data.stat.path
+
+  - name: Create directory if it doesn't already exist
+    file:
+      path: './IVT-CTKS-101M'
+      state: directory
+      mode: 0755
+      group: baevm
+      owner: baevm
+    when: not directory_data.stat.exists

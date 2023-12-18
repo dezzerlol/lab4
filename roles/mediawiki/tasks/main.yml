@@ -1,0 +1,12 @@
+---
+- name: "Copy docker compose file of mediawiki"
+  copy:
+    src: "docker-compose.yml"
+    dest: "IVT-CTKS-101M/docker-compose.yml"
+
+- name: "Start docker compose"
+  command: "docker compose up -d"
+  args:
+    chdir: "IVT-CTKS-101M/"
+  register: output
+  

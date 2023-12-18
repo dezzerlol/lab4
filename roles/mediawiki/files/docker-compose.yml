@@ -1,0 +1,27 @@
+version: '3.9'
+
+services:
+  mediawiki:
+    image: mediawiki
+    restart: always
+    ports:
+      - 8100:80
+    links:
+      - database
+    networks:
+      - local-network
+
+  database:
+    image: mariadb
+    restart: always
+    environment:
+      MYSQL_DATABASE: wiki_db
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: wikimedia
+      MYSQL_PASSWORD: wikimedia
+    networks:
+      - local-network
+
+networks:
+  local-network:
+    driver: bridge
