@@ -13,8 +13,9 @@ services:
      - /var/run/docker.sock:/var/run/docker.sock
     command: bash -c "groupadd -g 993 docker && gpasswd -a jenkins docker"
 
-  # nexus-repo:
-  #   image: sonatype/nexus3
-  #   ports:
-  #     - 8030:8081
-  #   container_name: nexus_repo
+  nexus-repo:
+    image: sonatype/nexus3:3.41.1
+    ports:
+      - 8030:8081
+      - 5000:5000
+    container_name: nexus_repo

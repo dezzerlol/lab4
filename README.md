@@ -5,27 +5,39 @@ https://www.digitalocean.com/community/tutorials/how-to-install-jenkins-on-ubunt
 
 2. jenkins admin password
 ```
-docker exec -i jenkins-ci cat /var/jenkins_home/secrets/initialAdminPassword
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 ```
 
-3. run nexus repository. wait for container to start (1 min)
+3. get ip from `ip addr`
 ```
-docker run -d --name nexus_repo -p 8030:8081 sonatype/nexus3
+172.16.26.131 
 ```
 
-4. nexus admin password
+4. run nexus repository. wait for container to start (1 min)
+```
+docker run -d --name nexus_repo -p 8030:8081 -p 8031:8082 -e REGISTRY_HTTP_HOST=https://172.16.26.131:8082 sonatype/nexus3
+```
+
+5. get nexus admin password
 ```
 docker exec -i nexus_repo cat /nexus-data/admin.password
 ```
 
-5. create maven nexus repo
+6. create maven repo inside nexus
 ```
 type: maven2 (hosted)
 version policy: mixed
 deployment policy: allow redeploy
 ```
 
-6. create maven user for nexus
+7. create docker repo inside nexus
+```
+name: docker-nexus-repo
+type: hosted
+http: 8082
+```
+
+8. create maven user for nexus
 ```
 id: jenkins-user
 firstname: Jenkins
@@ -36,17 +48,31 @@ status: active
 roles: nx-admin
 ```
 
-7. install jenkins plugins
+9. install jenkins plugins
 ```
 Nexus Artifact Uploader
 Pipeline Utility Steps
+docker
 ```
 
-8. install maven in jenkins
+10.  install maven in jenkins
 
-9. add nexus credentials to jenkins
+11.   add nexus credentials to jenkins
+    
+12.   cat /etc/default/docker
+```
+DOCKER_OPTS="--config-file=/etc/docker/daemon.json"
+```
 
-10. create nexus pipeline
+13.   cat /etc/docker/daemon.json
+```
+{
+"insecure-registries": ["172.16.26.131:8030", "172.16.26.131:8031", "172.16.26.131:8082"],
+"registry-mirrors": ["http://172.16.26.131:8030"]
+}
+```
+
+14. create nexus pipeline
 ```
 pipeline {
     agent {
@@ -58,10 +84,12 @@ pipeline {
     environment {
         NEXUS_VERSION = "nexus3"
         NEXUS_PROTOCOL = "http"
-        NEXUS_URL = "172.16.26.131:8030"
+        NEXUS_MVN_URL = "172.16.26.131:8030"
         NEXUS_MVN_REPOSITORY = "maven-nexus-repo"
+        NEXUS_DOCKER_URL = "172.16.26.131:8031"
         NEXUS_DOCKER_REPO = "docker-nexus-repo"
         NEXUS_CREDENTIAL_ID = "nexus-user-credentials"
+        CONTAINER_NAME = "java-app"
     }
     stages {
         stage("Clone code from VCS") {
@@ -91,7 +119,7 @@ pipeline {
                         nexusArtifactUploader(
                             nexusVersion: NEXUS_VERSION,
                             protocol: NEXUS_PROTOCOL,
-                            nexusUrl: NEXUS_URL,
+                            nexusUrl: NEXUS_MVN_URL,
                             groupId: pom.groupId,
                             version: pom.version,
                             repository: NEXUS_MVN_REPOSITORY,
@@ -114,14 +142,14 @@ pipeline {
             }
         }
 
-         stage('Initialize'){
+        stage('Initialize'){
             steps {
                 script {
-        def dockerHome = tool 'myDocker'
-        env.PATH = "${dockerHome}/bin:${env.PATH}"
+                    def dockerHome = tool 'docker'
+                    env.PATH = "${dockerHome}/bin:${env.PATH}"
                 }
             }
-    }
+        }
 
         stage('Docker Build') {
             steps { 
@@ -129,13 +157,20 @@ pipeline {
                     sh 'docker build -t createpdf:latest .'
                 }
         }
-
+        
+        stage('Docker tag') {
+            steps { 
+                    echo 'Building docker Image'
+                    sh 'docker tag createpdf:latest $NEXUS_DOCKER_URL/createpdf:latest'
+                }
+        }
+        
        stage('Docker Login') {
             steps {
                 echo 'Nexus Docker Repository Login'
                 script{
                     withCredentials([usernamePassword(credentialsId: NEXUS_CREDENTIAL_ID, usernameVariable: 'USER', passwordVariable: 'PASS' )]){
-                       sh 'echo $PASS | docker login -u $USER --password-stdin $NEXUS_DOCKER_REPO'
+                       sh 'docker login -u $USER -p $PASS $NEXUS_DOCKER_URL'
                     }
                    
                 }
@@ -144,8 +179,22 @@ pipeline {
 
         stage('Docker Push') {
             steps {
-                echo 'Pushing Imgaet to docker hub'
-                sh 'docker push createpdf:latest'
+                echo 'Pushing Image to docker hub'
+                sh 'docker push $NEXUS_DOCKER_URL/createpdf:latest'
+            }
+        }
+        
+        stage('Docker Stop Application') {
+            steps {
+                echo 'Starting application'
+                sh 'docker stop $CONTAINER_NAME || true && docker rm $CONTAINER_NAME || true'
+            }
+        }
+        
+        stage('Docker Run') {
+            steps {
+                echo 'Starting application'
+                sh 'docker run -d -p 8888:8080 --name $CONTAINER_NAME $NEXUS_DOCKER_URL/createpdf:latest'
             }
         }
     }
@@ -157,5 +206,3 @@ pipeline {
 ```
 https://stackoverflow.com/questions/47854463/docker-got-permission-denied-while-trying-to-connect-to-the-docker-daemon-socke
 ```
-
-docker run -d --name jenkins-ci -p 8040:8080 -v /var/run/docker.sock:/var/run/docker.sock jenkins/jenkins:lts

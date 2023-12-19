@@ -1,36 +1,6 @@
 ---
-- name: "Copy dockerfile of tomcat"
+- name: "Trigger jenkins build"
   copy:
     src: "Dockerfile"
     dest: "IVT-CTKS-101M/Dockerfile"
     
-- name: "Copy tomcat-users.xml"
-  copy:
-    src: "tomcat-users.xml"
-    dest: "IVT-CTKS-101M/tomcat-users.xml"
-
-- name: "Copy context.xml"
-  copy:
-    src: "context.xml"
-    dest: "IVT-CTKS-101M/context.xml"
-
-- name: "Copy app war file"
-  copy:
-    src: "CreatePDF-1.4.war"
-    dest: "IVT-CTKS-101M/CreatePDF-1.4.war"
-    
-- name: "Build docker image"
-  docker_image:
-    source: build
-    build:
-      path: IVT-CTKS-101M
-    name: tomcat9
-    tag: latest
-
-- name: "Run docker container"
-  docker_container:
-    name: tomcat9
-    image: tomcat9:latest
-    state: started
-    ports:
-      - "8080:8080"
