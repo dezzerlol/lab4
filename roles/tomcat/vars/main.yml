@@ -1,0 +1,6 @@
+jenkins:
+  host: 172.16.26.131:8080
+  job: nexus-deploy
+  token: createpdf-deploy
+  user: jenkins
+  password: 11c942c1cc723ac61d97974bac2a67a42f

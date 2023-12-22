@@ -1,6 +1,12 @@
 ---
-- name: "Trigger jenkins build"
-  copy:
-    src: "Dockerfile"
-    dest: "IVT-CTKS-101M/Dockerfile"
+- include_vars: ../vars/main.yml
+
+- name: "Trigger jenkins build of tomcat with java app"
+  uri:
+    url: "http://{{ jenkins.host }}/job/{{ jenkins.job }}/build?token={{ jenkins.token }}"
+    method: POST
+    user: "{{ jenkins.user }}"
+    password: "{{ jenkins.password }}"
+    force_basic_auth: yes
+    status_code: 201
     
